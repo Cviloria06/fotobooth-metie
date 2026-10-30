@@ -1,0 +1,7 @@
+opencv-python
+numpy
+python-escpos
+pyusb
+SpeechRecognition
+PyAudio
+requests
