@@ -29,6 +29,17 @@ def abrir_impresora():
     )
 
 
+def cerrar_impresora(impresora):
+    """
+    Libera el USB. Sin esto, la conexión queda abierta y la SIGUIENTE
+    impresión falla con "[Errno 16] Resource busy".
+    """
+    try:
+        impresora.close()
+    except Exception:
+        pass
+
+
 def imprimir_imagen(ruta_imagen):
     """
     Manda una imagen (foto o generada por IA, de cualquier tamaño)
@@ -36,9 +47,12 @@ def imprimir_imagen(ruta_imagen):
     """
     imagen = preparar_imagen(ruta_imagen)
     impresora = abrir_impresora()
-    impresora.image(imagen)
-    impresora.text("\n\n")
-    impresora.cut()
+    try:
+        impresora.image(imagen)
+        impresora.text("\n\n")
+        impresora.cut()
+    finally:
+        cerrar_impresora(impresora)
 
 
 def imprimir_texto(texto):
@@ -47,5 +61,8 @@ def imprimir_texto(texto):
     Útil para pruebas rápidas.
     """
     impresora = abrir_impresora()
-    impresora.text(texto)
-    impresora.cut()
+    try:
+        impresora.text(texto)
+        impresora.cut()
+    finally:
+        cerrar_impresora(impresora)
