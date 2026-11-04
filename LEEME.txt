@@ -1,0 +1,11 @@
+Tipografias del marco de impresion
+
+- Lora-BoldItalic.ttf  : letra cursiva del titulo (Lora, en negrita).
+- Poppins-Medium.ttf   : letra del texto de abajo y de la fecha (Poppins).
+
+Las dos son de Google Fonts y tienen licencia libre SIL Open Font License 1.1
+(se pueden usar y compartir en proyectos).
+
+Como cambiar la letra:
+1. Copia otro archivo .ttf a esta carpeta (por ejemplo, uno de fonts.google.com).
+2. En config.py cambia FUENTE_TITULO o FUENTE_TEXTO por "fuentes/NombreDelArchivo.ttf".
