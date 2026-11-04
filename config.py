@@ -15,9 +15,15 @@ ANCHO_IMPRESION = 576
 # --- Cámara ---
 CAMARA_INDICE = 0  # 0 es normalmente la primera cámara conectada
 
-# --- Botones (pines GPIO en la Raspberry, modo BCM) ---
-PIN_BOTON_FOTO = 17
-PIN_BOTON_IA = 27
+# --- Botón (un solo botón arcade, pin GPIO en modo BCM) ---
+# Toque corto = foto. Mantenerlo presionado = modo IA.
+# Conexión: una terminal (COM) al GPIO17 (pin 11) y la otra (NO) a GND (pin 9).
+PIN_BOTON = 17
+# Segundos que hay que mantenerlo presionado para que cuente como "largo".
+TIEMPO_PULSACION_LARGA = 1.5
+
+# --- Cuenta regresiva antes de tomar la foto ---
+SEGUNDOS_CUENTA_REGRESIVA = 5
 
 # --- Carpeta donde se guardan las fotos e imágenes generadas ---
 CARPETA_TEMP = "temp"

@@ -1,39 +1,94 @@
-# Este módulo detecta si estamos en una Raspberry Pi (con GPIO disponible)
-# o en un computador normal (sin GPIO).
+# Un solo botón con dos acciones:
+#   toque corto            -> "foto"
+#   mantenerlo presionado  -> "ia"
 #
-# revisar_accion() se usa DENTRO del bucle de la pantalla de menú: se
-# llama una y otra vez, muchas veces por segundo, y responde de inmediato
-# (nunca espera). Así la pantalla puede seguir dibujándose sin trabarse
-# mientras se revisa si alguien presionó un botón físico.
+# Conexión (botón arcade con microswitch): una terminal (COM) al GPIO17
+# (pin 11) y la otra (NO) a GND (pin 9). Al presionar, el pin se une a GND
+# y se lee "presionado"; la resistencia pull-up interna lo mantiene en alto
+# cuando no se presiona.
 #
-# En el computador (sin GPIO), el teclado se revisa directamente en
-# pantalla.py con cv2.waitKey, así que aquí simplemente no hay botones
-# que revisar y siempre se devuelve None.
+# Se usa gpiozero porque funciona en la Raspberry Pi 5. En un computador sin
+# GPIO no hay botón físico: HAY_BOTON queda en False y el teclado se revisa
+# aparte (en pantalla.py).
 
+import time
 import config
 
 try:
-    import RPi.GPIO as GPIO
-    HAY_GPIO = True
+    from gpiozero import Button
 except ImportError:
-    HAY_GPIO = False
+    Button = None
 
-if HAY_GPIO:
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(config.PIN_BOTON_FOTO, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-    GPIO.setup(config.PIN_BOTON_IA, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+HAY_BOTON = False
+_boton = None
+_accion_pendiente = None
+_mantenido = False
+
+
+def _al_mantener():
+    # Se llama una vez, cuando el botón lleva presionado TIEMPO_PULSACION_LARGA.
+    global _accion_pendiente, _mantenido
+    _mantenido = True
+    _accion_pendiente = "ia"
+
+
+def _al_soltar():
+    # Si no fue una pulsación larga, fue un toque corto.
+    global _accion_pendiente, _mantenido
+    if not _mantenido:
+        _accion_pendiente = "foto"
+    _mantenido = False
+
+
+def iniciar():
+    """Crea el botón. Devuelve True si hay un botón físico utilizable."""
+    global _boton, HAY_BOTON
+    if _boton is not None:
+        return True
+    if Button is None:
+        return False
+
+    try:
+        _boton = Button(
+            config.PIN_BOTON,
+            pull_up=True,
+            bounce_time=0.05,
+            hold_time=config.TIEMPO_PULSACION_LARGA,
+        )
+    except Exception as error:
+        print("Aviso: no se pudo iniciar el botón por GPIO:", error)
+        return False
+
+    _boton.when_held = _al_mantener
+    _boton.when_released = _al_soltar
+    HAY_BOTON = True
+    return True
 
 
 def revisar_accion():
     """
-    Revisa UNA sola vez si algún botón físico está presionado ahora
-    mismo (no espera a que se presione). Devuelve "foto", "ia" o None.
+    Revisa SIN esperar si hubo una pulsación. Devuelve "foto", "ia" o None.
+    Cada pulsación se entrega una sola vez. Sirve para llamarla muchas veces
+    por segundo dentro del bucle de la pantalla.
     """
-    if not HAY_GPIO:
-        return None
+    global _accion_pendiente
+    accion = _accion_pendiente
+    _accion_pendiente = None
+    return accion
 
-    if GPIO.input(config.PIN_BOTON_FOTO) == GPIO.HIGH:
-        return "foto"
-    if GPIO.input(config.PIN_BOTON_IA) == GPIO.HIGH:
-        return "ia"
-    return None
+
+def esperar_accion():
+    """Espera hasta que haya una pulsación y devuelve "foto" o "ia"."""
+    while True:
+        accion = revisar_accion()
+        if accion is not None:
+            return accion
+        time.sleep(0.02)
+
+
+def estado_actual():
+    """True si el botón está presionado en este momento (para diagnóstico)."""
+    return bool(_boton is not None and _boton.is_pressed)
+
+
+iniciar()

@@ -58,11 +58,13 @@ def mostrar_menu_y_esperar():
     En el computador: usa el teclado (1 = foto, 2 = ia, q = salir)
     directamente sobre la ventana, sin bloquear la terminal.
     """
+    boton.revisar_accion()  # descarta pulsaciones que quedaron de antes
+
     while True:
         fondo = obtener_fondo().copy()
         centrar_texto(fondo, "FOTOBOOTH METIE", 140, escala=1.6, grosor=3)
-        centrar_texto(fondo, "Boton 1: tomar una foto", 240, escala=0.8)
-        centrar_texto(fondo, "Boton 2: crear imagen con IA", 280, escala=0.8)
+        centrar_texto(fondo, "Toque corto: tomar una foto", 240, escala=0.8)
+        centrar_texto(fondo, "Manten presionado: crear con IA", 280, escala=0.8)
         cv2.imshow(NOMBRE_VENTANA, fondo)
 
         accion = boton.revisar_accion()
@@ -96,13 +98,16 @@ def mostrar_mensaje(texto, subtexto="", segundos=None):
         cv2.waitKey(1)
 
 
-def mostrar_vista_previa_con_conteo(segundos_totales=5):
+def mostrar_vista_previa_con_conteo(segundos_totales=None):
     """
     Abre la cámara, muestra lo que ve dentro de un marco en el centro
     de la pantalla, con una cuenta regresiva encima. Al llegar a 0,
     devuelve el cuadro capturado (sin guardar todavía). Si la cámara
     falla, devuelve None.
     """
+    if segundos_totales is None:
+        segundos_totales = config.SEGUNDOS_CUENTA_REGRESIVA
+
     camara = cv2.VideoCapture(config.CAMARA_INDICE)
     inicio = time.time()
 
