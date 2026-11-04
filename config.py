@@ -12,6 +12,17 @@ USB_IN_EP = 0x81
 # bájalo (por ejemplo a 512 o 384) hasta que salga completa.
 ANCHO_IMPRESION = 576
 
+# --- Marco que se imprime alrededor de cada foto o imagen de IA ---
+USAR_MARCO = True              # False = imprimir la foto sola, sin marco
+TEXTO_SUPERIOR = "Metie 2026"  # título de arriba (letra cursiva)
+TEXTO_INFERIOR = "FOTOBOOTH"   # texto de abajo
+MOSTRAR_FECHA = True           # False = sin fecha
+FECHA_TEXTO = "12 NOV 2026"    # fecha que se imprime. Déjalo vacío ("") para usar la fecha del día
+# Tipografías (archivos .ttf dentro de la carpeta "fuentes"). Para cambiarlas,
+# copia otra letra .ttf a esa carpeta y pon aquí su nombre.
+FUENTE_TITULO = "fuentes/Lora-BoldItalic.ttf"
+FUENTE_TEXTO = "fuentes/Poppins-Medium.ttf"
+
 # --- Cámara ---
 CAMARA_INDICE = 0  # 0 es normalmente la primera cámara conectada
 
