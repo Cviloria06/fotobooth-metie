@@ -2,8 +2,15 @@ import math
 import os
 from datetime import datetime
 from escpos.printer import Usb
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 import config
+
+try:
+    import cv2
+    import numpy as np
+except ImportError:      # sin OpenCV se omite solo el contraste local
+    cv2 = None
+    np = None
 
 CARPETA_PROYECTO = os.path.dirname(os.path.abspath(__file__))
 
@@ -134,16 +141,41 @@ def _guirnalda(d, x1, y1, x2, y2, r):
 
 # ---------- la foto y el marco ----------
 
+def _mejorar_tonos(gris):
+    """
+    Prepara la foto (en escala de grises) para el papel térmico:
+    1) contraste local: rescata caras oscuras cuando hay luz de fondo.
+    2) aclara los tonos medios: los puntos del papel térmico se "riegan" y
+       oscurecen la imagen, así que se compensa de antemano.
+    3) estira el contraste y 4) afina los bordes antes de pasar a puntitos.
+    """
+    local = float(_ajuste("CONTRASTE_LOCAL", 2.0))
+    if local > 0 and cv2 is not None:
+        suave = cv2.bilateralFilter(np.array(gris), 5, 35, 5)     # quita un poco de ruido sin borrar bordes
+        clahe = cv2.createCLAHE(clipLimit=local, tileGridSize=(4, 4))
+        gris = Image.fromarray(clahe.apply(suave))
+
+    gamma = float(_ajuste("GAMMA_IMPRESION", 0.75))
+    tabla = [int(round(255 * (i / 255) ** gamma)) for i in range(256)]
+    gris = gris.point(tabla)
+
+    gris = ImageOps.autocontrast(gris, cutoff=1)
+    return gris.filter(ImageFilter.UnsharpMask(radius=1.4, percent=110, threshold=2))
+
+
 def _foto_en_blanco_y_negro(ruta_imagen, ancho):
     """
     Abre la foto, la redimensiona al ancho pedido (manteniendo la proporción),
-    mejora el contraste y la convierte a blanco y negro con puntitos
-    (tramado), que es lo que mejor se ve en papel térmico.
+    la mejora y la convierte a blanco y negro con puntitos (tramado),
+    que es lo que mejor se ve en papel térmico.
     """
     foto = Image.open(ruta_imagen).convert("L")
     alto = int(foto.height * ancho / foto.width)
     foto = foto.resize((ancho, alto), Image.LANCZOS)
-    foto = ImageOps.autocontrast(foto)
+    if _ajuste("MEJORAR_FOTO", True):
+        foto = _mejorar_tonos(foto)
+    else:
+        foto = ImageOps.autocontrast(foto)
     return foto.convert("1")
 
 

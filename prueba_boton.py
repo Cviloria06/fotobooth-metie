@@ -16,28 +16,24 @@ import cv2
 import config
 import boton
 import impresora
+import captura
 
 RUTA_FOTO = "foto_boton.jpg"
 
 
 def hacer_foto_con_cuenta():
     """Cuenta regresiva en la terminal, mientras la cámara sigue leyendo
-    (así ajusta la luz), y al llegar a 0 guarda la foto. Devuelve la ruta
-    o None si algo falló."""
-    camara = cv2.VideoCapture(config.CAMARA_INDICE, cv2.CAP_V4L2)
-    if not camara.isOpened():
-        camara = cv2.VideoCapture(config.CAMARA_INDICE)
-    if not camara.isOpened():
+    (así ajusta la luz). Al llegar a 0 guarda el promedio de los últimos
+    cuadros, que sale con menos ruido. Devuelve la ruta o None si algo falló."""
+    camara = captura.abrir_camara()
+    if camara is None:
         print("ERROR: no se pudo abrir la cámara. ¿Hay otro programa usándola?")
         return None
-
-    camara.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    camara.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
     total = config.SEGUNDOS_CUENTA_REGRESIVA
     inicio = time.time()
     ultimo_mostrado = None
-    cuadro = None
+    ultimos = []
 
     while True:
         transcurrido = time.time() - inicio
@@ -46,7 +42,9 @@ def hacer_foto_con_cuenta():
 
         ok, leido = camara.read()
         if ok:
-            cuadro = leido
+            ultimos.append(captura.recortar_4_3(leido))
+            if len(ultimos) > config.CUADROS_A_PROMEDIAR:
+                ultimos.pop(0)
 
         restantes = total - int(transcurrido)
         if restantes != ultimo_mostrado:
@@ -55,10 +53,11 @@ def hacer_foto_con_cuenta():
 
     camara.release()
 
-    if cuadro is None:
+    if not ultimos:
         print("ERROR: la cámara no entregó ninguna imagen.")
         return None
 
+    cuadro = captura.promediar(ultimos)
     cv2.imwrite(RUTA_FOTO, cuadro)
     return RUTA_FOTO
 
