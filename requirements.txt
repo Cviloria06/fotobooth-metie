@@ -1,7 +1,8 @@
 opencv-python
 numpy
+Pillow
 python-escpos
 pyusb
 SpeechRecognition
-PyAudio
-requests
+# Solo si algún día usas Gemini (PROVEEDOR_IA = "gemini"):
+# google-genai

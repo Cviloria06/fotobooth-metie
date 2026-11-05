@@ -46,7 +46,10 @@ PIN_BOTON = 17
 TIEMPO_PULSACION_LARGA = 1.5
 
 # --- Cuenta regresiva antes de tomar la foto ---
+# Primero se ve la cámara y se espera otro toque del botón; entonces empieza esta cuenta.
 SEGUNDOS_CUENTA_REGRESIVA = 5
+# Si nadie presiona el botón en la vista de la cámara durante este tiempo, vuelve al menú.
+TIEMPO_MAX_VISTA_PREVIA = 90
 
 # --- Carpeta donde se guardan las fotos e imágenes generadas ---
 CARPETA_TEMP = "temp"
@@ -80,3 +83,35 @@ PANTALLA_ROTACION = 1              # 0 y 2 = vertical, 1 y 3 = horizontal. Prueb
 PANTALLA_ESPEJO = True             # la vista de la cámara se ve como un espejo (la foto impresa NO se voltea)
 PANTALLA_CAMBIAR_ROJO_AZUL = False # True si el rojo sale azul y el azul sale rojo
 PANTALLA_INVERTIR_COLORES = False  # True si los colores se ven como en un negativo
+
+# ===== Modo IA =====
+# --- Micrófono ---
+# "auto" = usa la primera tarjeta de captura que muestre "arecord -l" (el micrófono de la webcam
+# o uno USB). Si hay varios, pon aquí el dispositivo exacto, por ejemplo "plughw:2,0".
+MICROFONO_DISPOSITIVO = "auto"
+MICROFONO_SEGUNDOS = 6            # cuánto tiempo graba cuando dices qué imagen quieres
+MICROFONO_UMBRAL_SILENCIO = 400   # si el pico de volumen es menor que esto, se considera silencio
+IDIOMA_VOZ = "es-CO"
+
+# --- ¿Qué IA crea las imágenes? ---
+# "pollinations" = gratis, sin clave (lo normal). "gemini" = de pago, necesita clave y facturación.
+PROVEEDOR_IA = "pollinations"
+# Se añade al final de lo que dices, para que el dibujo salga bien en papel térmico (solo blanco y negro).
+ESTILO_IA = ("Ilustración clara, de alto contraste, con contornos definidos y fondo sencillo, "
+             "sin texto ni letras.")
+
+# --- Pollinations ---
+POLLINATIONS_ANCHO = 768
+POLLINATIONS_ALTO = 1024          # vertical, como el papel de la impresora
+POLLINATIONS_MODELO = ""          # vacío = el modelo por defecto del servicio (por ejemplo "flux")
+POLLINATIONS_TIMEOUT = 90         # segundos máximos de espera por intento
+POLLINATIONS_INTENTOS = 3         # si dice "espera" o falla, se reintenta solo
+
+# --- Gemini (solo si PROVEEDOR_IA = "gemini") ---
+# La clave NO va aquí: se guarda en el archivo clave_gemini.txt dentro de la carpeta del proyecto
+# (créalo solo en la Raspberry; no lo subas a GitHub).
+ARCHIVO_CLAVE_GEMINI = "clave_gemini.txt"
+# Se prueba el primer modelo; si no existe, el siguiente. Verifica los nombres vigentes en Google AI Studio.
+GEMINI_MODELOS_IMAGEN = ["gemini-nano-banana-2.1", "gemini-3.1-flash-image"]
+GEMINI_PROPORCION = "3:4"         # vertical, como el papel de la impresora
+GEMINI_TIMEOUT = 90               # segundos máximos de espera
