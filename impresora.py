@@ -34,7 +34,8 @@ def _ajuste(nombre, por_defecto):
 def _fuente(ruta_config, tamano):
     """Busca la letra en la carpeta del proyecto; si no está, usa DejaVu."""
     candidatos = [
-        os.path.join(CARPETA_PROYECTO, ruta_config),
+        os.path.join(CARPETA_PROYECTO, ruta_config),                          # fuentes/Lora-BoldItalic.ttf
+        os.path.join(CARPETA_PROYECTO, os.path.basename(ruta_config)),        # o suelta en la carpeta principal
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     ]
     for ruta in candidatos:

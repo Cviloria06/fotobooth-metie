@@ -24,6 +24,9 @@ import config
 NOMBRE_VENTANA = "Fotobooth"
 CARPETA_PROYECTO = os.path.dirname(os.path.abspath(__file__))
 
+# Lo devuelve la vista de la cámara si se cancela o si pasó mucho tiempo sin tocar el botón
+CANCELADO = "cancelado"
+
 OSCURO = (84, 38, 96)        # morado oscuro para los textos
 BLANCO = (255, 255, 255)
 
@@ -81,13 +84,17 @@ def _medidas():
 
 
 def _presentar(imagen):
-    """Manda una imagen RGB (PIL o numpy) a la pantalla."""
+    """
+    Manda una imagen RGB (PIL o numpy) a la pantalla.
+    En modo ventana devuelve la tecla que se presionó (o None).
+    """
     matriz = np.asarray(imagen)
     if _pantalla_spi is not None:
         _pantalla_spi.mostrar(matriz)
-    else:
-        cv2.imshow(NOMBRE_VENTANA, cv2.cvtColor(matriz, cv2.COLOR_RGB2BGR))
-        cv2.waitKey(1)
+        return None
+    cv2.imshow(NOMBRE_VENTANA, cv2.cvtColor(matriz, cv2.COLOR_RGB2BGR))
+    k = cv2.waitKey(1) & 0xFF
+    return chr(k).lower() if 0 < k < 255 else None
 
 
 def _esperar(segundos):
@@ -105,6 +112,7 @@ def _fuente(ruta_config, tamano):
     if clave not in _fuentes:
         fuente = None
         for ruta in (os.path.join(CARPETA_PROYECTO, ruta_config),
+                     os.path.join(CARPETA_PROYECTO, os.path.basename(ruta_config)),
                      "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"):
             try:
                 fuente = ImageFont.truetype(ruta, tamano)
@@ -307,12 +315,8 @@ def mostrar_menu_y_esperar():
             _presentar(menu)        # mantiene viva la ventana
 
 
-def _leer_tecla():
-    if _pantalla_spi is None:
-        k = cv2.waitKey(30) & 0xFF
-        return chr(k).lower() if 0 < k < 255 else None
-
-    time.sleep(0.03)
+def _tecla_terminal():
+    """Con la pantalla SPI: una tecla escrita en la terminal (más Enter), sin esperar. None si no hay."""
     try:
         if select.select([sys.stdin], [], [], 0)[0]:
             linea = sys.stdin.readline().strip().lower()
@@ -320,6 +324,15 @@ def _leer_tecla():
     except (ValueError, OSError):
         pass
     return None
+
+
+def _leer_tecla():
+    if _pantalla_spi is None:
+        k = cv2.waitKey(30) & 0xFF
+        return chr(k).lower() if 0 < k < 255 else None
+
+    time.sleep(0.03)
+    return _tecla_terminal()
 
 
 def mostrar_mensaje(texto, subtexto="", segundos=None):
@@ -341,12 +354,26 @@ def _cubrir_cuadro(cuadro, ancho, alto):
     return chico[y:y + alto, x:x + ancho]
 
 
+def _vista_de_camara(cuadro, ancho, alto):
+    """El cuadro de la cámara ajustado a la pantalla (y como espejo, si está activado)."""
+    vista = cv2.cvtColor(_cubrir_cuadro(cuadro, ancho, alto), cv2.COLOR_BGR2RGB)
+    if getattr(config, "PANTALLA_ESPEJO", True):
+        vista = cv2.flip(vista, 1)
+    return Image.fromarray(vista)
+
+
 def mostrar_vista_previa_con_conteo(segundos_totales=None):
     """
-    Muestra lo que ve la cámara en toda la pantalla, con una cuenta regresiva
-    encima. Al llegar a 0 hace un destello y devuelve el cuadro capturado
-    (el promedio de los últimos cuadros, con menos ruido), sin guardarlo
-    todavía. Si la cámara falla, devuelve None.
+    La cámara en dos fases:
+      1) Se ve lo que ve la cámara y se espera OTRO toque del botón (o la tecla 1).
+      2) Con ese toque empieza la cuenta regresiva, hay un destello y se toma la foto.
+
+    Devuelve:
+      - el cuadro capturado (el promedio de los últimos cuadros, con menos ruido),
+        sin guardarlo todavía;
+      - CANCELADO si se mantuvo presionado el botón (o la tecla q), o si pasó
+        TIEMPO_MAX_VISTA_PREVIA sin tocarlo;
+      - None si la cámara falla.
     """
     if segundos_totales is None:
         segundos_totales = config.SEGUNDOS_CUENTA_REGRESIVA
@@ -357,41 +384,77 @@ def mostrar_vista_previa_con_conteo(segundos_totales=None):
 
     ancho, alto = _medidas()
     f_numero = _f_titulo(alto * 0.36)
-    f_aviso = _f_texto(alto * 0.075)
-    inicio = time.time()
+    f_aviso = _f_texto(alto * 0.07)
+    f_chico = _f_texto(alto * 0.05)
+    f_sonrie = _f_texto(alto * 0.075)
     ultimos = []
-    cuadro_final = None
 
-    while True:
+    def leer():
+        """Un cuadro nuevo de la cámara (recortado a 4:3), o None si falla."""
         ok, cuadro = camara.read()
         if not ok:
-            break
-
+            return None
         cuadro = captura.recortar_4_3(cuadro)
         ultimos.append(cuadro)
         if len(ultimos) > config.CUADROS_A_PROMEDIAR:
             ultimos.pop(0)
+        return cuadro
+
+    # ---- fase 1: ver la cámara y esperar el toque ----
+    boton.revisar_accion()               # descarta pulsaciones viejas
+    limite = float(getattr(config, "TIEMPO_MAX_VISTA_PREVIA", 90))
+    inicio_vista = time.time()
+
+    while True:
+        cuadro = leer()
+        if cuadro is None:
+            camara.release()
+            return None
+        if time.time() - inicio_vista > limite:
+            camara.release()
+            return CANCELADO
+
+        img = _vista_de_camara(cuadro, ancho, alto)
+        d = ImageDraw.Draw(img, "RGBA")
+        _texto(d, "Encuadra tu foto", ancho / 2, alto * 0.08, f_sonrie, BLANCO, OSCURO, 2)
+        _texto(d, "Toca el botón para empezar", ancho / 2, alto * 0.83, f_aviso, BLANCO, OSCURO, 2)
+        _texto(d, "Mantén presionado para volver", ancho / 2, alto * 0.92, f_chico, BLANCO, OSCURO, 2)
+        tecla = _presentar(img) or _tecla_terminal()
+
+        accion = boton.revisar_accion()
+        if accion == "foto" or tecla == "1":
+            break
+        if accion == "ia" or tecla == "q":
+            camara.release()
+            return CANCELADO
+
+    # ---- fase 2: cuenta regresiva y foto ----
+    inicio = time.time()
+    cuadro_final = None
+
+    while True:
+        cuadro = leer()
+        if cuadro is None:
+            break
 
         restantes = segundos_totales - int(time.time() - inicio)
         if restantes <= 0:
             cuadro_final = captura.promediar(ultimos)
             break
 
-        vista = cv2.cvtColor(_cubrir_cuadro(cuadro, ancho, alto), cv2.COLOR_BGR2RGB)
-        if getattr(config, "PANTALLA_ESPEJO", True):
-            vista = cv2.flip(vista, 1)
-        img = Image.fromarray(vista)
+        img = _vista_de_camara(cuadro, ancho, alto)
         d = ImageDraw.Draw(img, "RGBA")
         # el número va en la esquina de abajo para no tapar la cara
         cx, cy, radio = ancho * 0.85, alto * 0.76, alto * 0.19
         d.ellipse([cx - radio, cy - radio, cx + radio, cy + radio], fill=(84, 38, 96, 170))
         _texto(d, str(restantes), cx, cy, f_numero, BLANCO, OSCURO, 2)
-        _texto(d, "¡Sonríe!", ancho / 2, alto * 0.09, f_aviso, BLANCO, OSCURO, 2)
+        _texto(d, "¡Sonríe!", ancho / 2, alto * 0.09, f_sonrie, BLANCO, OSCURO, 2)
         _presentar(img)
 
     camara.release()
+    boton.revisar_accion()               # ignora lo que se presionó durante la cuenta
 
-    if cuadro_final is not None:        # destello de la foto
+    if cuadro_final is not None:         # destello de la foto
         _presentar(np.full((alto, ancho, 3), 255, dtype=np.uint8))
         _esperar(0.08)
     return cuadro_final

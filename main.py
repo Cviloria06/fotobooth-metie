@@ -3,6 +3,11 @@ import impresora
 import ia_generador
 
 
+def _aviso(error, por_defecto):
+    """El aviso corto que prepara ia_generador (error.corto); si no hay, el genérico."""
+    return getattr(error, "corto", None) or por_defecto
+
+
 def imprimir_con_aviso(ruta):
     """
     Imprime la imagen y muestra "¡Listo!". Si la impresora falla,
@@ -17,8 +22,11 @@ def imprimir_con_aviso(ruta):
 
 
 def modo_foto():
-    pantalla.mostrar_mensaje("Prepárate...", segundos=1)
+    pantalla.mostrar_mensaje("Abriendo cámara...")
     cuadro = pantalla.mostrar_vista_previa_con_conteo()
+
+    if cuadro is pantalla.CANCELADO:
+        return                      # se canceló o pasó mucho tiempo: vuelve al menú
 
     if cuadro is None:
         pantalla.mostrar_mensaje("No se pudo usar la cámara", segundos=2)
@@ -34,8 +42,9 @@ def modo_ia():
     try:
         descripcion = ia_generador.escuchar_descripcion()
     except Exception as error:
-        print("Error con el micrófono:", error)
-        pantalla.mostrar_mensaje("Micrófono no disponible", subtexto="Todavía no está listo", segundos=3)
+        print("Error al escuchar:", getattr(error, "detalle", error))
+        pantalla.mostrar_mensaje(_aviso(error, "Micrófono no disponible"),
+                                 subtexto="Intenta de nuevo", segundos=3)
         return
 
     if descripcion is None:
@@ -46,8 +55,9 @@ def modo_ia():
     try:
         ruta = ia_generador.generar_imagen(descripcion)
     except Exception as error:
-        print("Error generando la imagen:", error)
-        pantalla.mostrar_mensaje("La IA no respondió", subtexto="Intenta de nuevo", segundos=3)
+        print("Error generando la imagen:", getattr(error, "detalle", error))
+        pantalla.mostrar_mensaje(_aviso(error, "La IA no respondió"),
+                                 subtexto="Intenta de nuevo", segundos=3)
         return
 
     pantalla.mostrar_imagen_resultado(ruta, "Imprimiendo...")
