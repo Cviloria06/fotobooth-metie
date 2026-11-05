@@ -278,6 +278,7 @@ def _generar_pollinations(descripcion):
 
     intentos = int(_ajuste("POLLINATIONS_INTENTOS", 3))
     detalle = "sin respuesta"
+    imagen = None
     for numero in range(1, intentos + 1):
         try:
             pedido = urllib.request.Request(url, headers={"User-Agent": "fotobooth-metie"})
@@ -285,7 +286,8 @@ def _generar_pollinations(descripcion):
                 tipo = resp.headers.get("Content-Type", "")
                 datos = resp.read()
             if "image" in tipo and datos:
-                return _guardar_bytes(datos)
+                imagen = datos
+                break
             detalle = "respondió algo que no es una imagen (" + tipo + "): " + datos[:200].decode("utf-8", "replace")
         except urllib.error.HTTPError as error:
             detalle = "código " + str(error.code) + " " + str(error.reason)
@@ -296,16 +298,24 @@ def _generar_pollinations(descripcion):
         if numero < intentos:
             time.sleep(16)      # el servicio gratis deja una imagen cada ~15 segundos
 
+    if imagen is not None:
+        return _guardar_bytes(imagen)
+
     corto = "Sin conexión con la IA" if "urlopen" in detalle or "Name or service" in detalle else "La IA no respondió"
     raise ErrorIA("Pollinations no devolvió una imagen: " + detalle, corto)
 
 
 def _guardar_bytes(datos):
     from PIL import Image
-    if not os.path.exists(config.CARPETA_TEMP):
-        os.makedirs(config.CARPETA_TEMP)
     ruta = os.path.join(config.CARPETA_TEMP, "generada.jpg")
-    Image.open(io.BytesIO(datos)).convert("RGB").save(ruta, "JPEG", quality=92)
+    try:
+        if not os.path.exists(config.CARPETA_TEMP):
+            os.makedirs(config.CARPETA_TEMP)
+        Image.open(io.BytesIO(datos)).convert("RGB").save(ruta, "JPEG", quality=92)
+    except PermissionError as error:
+        raise ErrorIA("No se pudo guardar " + ruta + ": " + str(error)
+                      + ". Arréglalo con: sudo chown -R $USER:$USER " + config.CARPETA_TEMP,
+                      "No puedo guardar la imagen")
     return ruta
 
 
