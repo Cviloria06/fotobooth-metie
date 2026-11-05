@@ -9,6 +9,7 @@
 # y "corto" es el aviso que se muestra en la pantalla pequeña.
 
 import io
+import json
 import os
 import re
 import subprocess
@@ -255,6 +256,47 @@ def _generar_gemini(descripcion):
                   + ". Revisa GEMINI_MODELOS_IMAGEN en config.py.", "Modelo de IA no disponible")
 
 
+# ------------------------------------------------------------ traducción
+
+def _traducir_google(texto):
+    """Traductor gratuito de Google (sin clave). Devuelve el texto en inglés."""
+    url = ("https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q="
+           + urllib.parse.quote(texto))
+    pedido = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(pedido, timeout=_ajuste("TRADUCCION_TIMEOUT", 8)) as resp:
+        datos = json.loads(resp.read().decode("utf-8"))
+    return "".join(trozo[0] for trozo in datos[0] if trozo and trozo[0])
+
+
+def _traducir_mymemory(texto):
+    """Plan B: MyMemory (gratis, sin clave, con límite diario)."""
+    url = ("https://api.mymemory.translated.net/get?langpair=es|en&q="
+           + urllib.parse.quote(texto))
+    pedido = urllib.request.Request(url, headers={"User-Agent": "fotobooth-metie"})
+    with urllib.request.urlopen(pedido, timeout=_ajuste("TRADUCCION_TIMEOUT", 8)) as resp:
+        datos = json.loads(resp.read().decode("utf-8"))
+    return datos["responseData"]["translatedText"]
+
+
+def traducir_al_ingles(texto):
+    """
+    Traduce lo que dijiste al inglés (las IAs de imágenes entienden mucho mejor el inglés).
+    Si no se puede traducir, devuelve el texto original: nunca bloquea la imagen.
+    """
+    if not _ajuste("TRADUCIR_A_INGLES", True):
+        return texto
+    for funcion in (_traducir_google, _traducir_mymemory):
+        try:
+            resultado = funcion(texto).strip()
+            if resultado:
+                print("Traducción al inglés:", resultado)
+                return resultado
+        except Exception as error:
+            print("No se pudo traducir con", funcion.__name__ + ":", error)
+    print("No se pudo traducir; se usa el texto original.")
+    return texto
+
+
 # ------------------------------------------------------------ Pollinations
 
 def _pedido_con_estilo(descripcion):
@@ -268,7 +310,7 @@ def _generar_pollinations(descripcion):
     Pide la imagen a Pollinations (gratis, sin clave) y la guarda en temp/generada.jpg.
     El servicio gratis atiende de a una imagen y a veces dice "espera": se reintenta solo.
     """
-    texto = urllib.parse.quote(_pedido_con_estilo(descripcion))
+    texto = urllib.parse.quote(_pedido_con_estilo(traducir_al_ingles(descripcion)))
     url = ("https://image.pollinations.ai/prompt/" + texto
            + "?width=%d&height=%d&nologo=true" % (_ajuste("POLLINATIONS_ANCHO", 768),
                                                    _ajuste("POLLINATIONS_ALTO", 1024)))

@@ -97,8 +97,13 @@ IDIOMA_VOZ = "es-CO"
 # "pollinations" = gratis, sin clave (lo normal). "gemini" = de pago, necesita clave y facturación.
 PROVEEDOR_IA = "pollinations"
 # Se añade al final de lo que dices, para que el dibujo salga bien en papel térmico (solo blanco y negro).
-ESTILO_IA = ("Ilustración clara, de alto contraste, con contornos definidos y fondo sencillo, "
-             "sin texto ni letras.")
+# Va en inglés porque la descripción se traduce al inglés antes de pedir la imagen.
+ESTILO_IA = ("Clear high-contrast illustration with bold outlines and a simple background, "
+             "no text or letters.")
+# True = lo que dices se traduce al inglés antes de pedir la imagen (suele seguir mejor la descripción).
+# Si el traductor no responde, se usa el texto original.
+TRADUCIR_A_INGLES = True
+TRADUCCION_TIMEOUT = 8            # segundos máximos de espera del traductor
 
 # --- Pollinations ---
 POLLINATIONS_ANCHO = 768
